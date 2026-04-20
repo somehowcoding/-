@@ -9,101 +9,94 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@600;900&display=swap');
         body { font-family: 'Pretendard', sans-serif; transition: 0.3s; }
-        .scan-line { animation: scan 2s linear infinite; }
-        @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
+        .glitch { position: relative; color: #3b82f6; }
+        .glitch::after { content: attr(data-text); position: absolute; left: 2px; text-shadow: -1px 0 red; top: 0; background: transparent; overflow: hidden; clip: rect(0, 900px, 0, 0); animation: noise 3s infinite linear alternate-reverse; }
+        @keyframes noise { 0% { clip: rect(51px, 9999px, 28px, 0); } 100% { clip: rect(70px, 9999px, 11px, 0); } }
     </style>
 </head>
-<body class="bg-slate-50 dark:bg-[#050505] text-slate-900 dark:text-slate-100 min-h-screen flex flex-col items-center justify-center p-6 text-center">
+<body class="bg-[#f8fafc] dark:bg-[#0a0a0a] text-slate-900 dark:text-slate-100 min-h-screen flex flex-col items-center justify-center p-6">
 
-    <div class="mb-10">
-        <h1 class="text-5xl font-black tracking-tighter mb-2 italic text-blue-600">ENTRY HISTORY</h1>
-        <p class="text-slate-400 text-sm font-bold uppercase tracking-[0.2em]">Real-time Scanner Bot</p>
+    <div class="mb-12 text-center">
+        <h1 class="text-5xl font-black tracking-tighter italic mb-2 glitch" data-text="ENTRY HISTORY">ENTRY HISTORY</h1>
+        <p class="text-slate-400 text-xs font-bold tracking-[0.3em] uppercase">Bug Fix & Restore Module</p>
     </div>
 
-    <div class="w-full max-w-md flex gap-2 mb-8">
-        <input id="userInput" type="text" onkeyup="if(window.event.keyCode==13){startScan()}"
-               placeholder="조사할 아이디 또는 닉네임" 
-               class="flex-grow p-5 rounded-3xl bg-white dark:bg-zinc-900 shadow-xl outline-none focus:ring-2 ring-blue-500 font-bold text-black dark:text-white">
-        <button onclick="startScan()" class="bg-blue-600 text-white px-8 py-5 rounded-3xl font-black shadow-lg active:scale-95 transition-all">
-            스캔
+    <div class="w-full max-w-md flex gap-2 mb-10">
+        <input id="userInput" type="text" onkeyup="if(window.event.keyCode==13){restoreFollower()}"
+               placeholder="닉네임 또는 ID" 
+               class="flex-grow p-5 rounded-[28px] bg-white dark:bg-zinc-900 shadow-xl outline-none focus:ring-2 ring-blue-500 font-bold transition-all">
+        <button onclick="restoreFollower()" class="bg-blue-600 hover:bg-blue-500 text-white px-8 py-5 rounded-[28px] font-black shadow-lg active:scale-95 transition-all">
+            조회
         </button>
     </div>
 
-    <div id="resultArea" class="hidden w-full max-w-md relative"></div>
+    <div id="resultArea" class="hidden w-full max-w-md"></div>
 
-    <footer class="mt-20 text-slate-400 dark:text-zinc-600 text-[10px] font-black tracking-[0.4em] uppercase">
+    <footer class="mt-20 text-slate-400 dark:text-zinc-700 text-[10px] font-black tracking-[0.5em] uppercase">
         Made by 어쩌다코딩
     </footer>
 
     <script>
-        async function startScan() {
+        // [수정 구역] 탈퇴로 사라진 팔로워 수를 여기에 기록하세요!
+        // "아이디": 사라진숫자
+        const RESTORE_DATA = {
+            "jangye": 2500,        // 예: 장예님 탈퇴 팔로워 2500명 복구
+            "com_p_0126": 1200,    // 예: 어쩌다코딩님 탈퇴 팔로워 1200명 복구
+            "entry_dev": 5000      // 예: 엔트리개발자 탈퇴 팔로워 5000명 복구
+        };
+
+        async function restoreFollower() {
             const input = document.getElementById('userInput').value.trim();
             const resultArea = document.getElementById('resultArea');
             if (!input) return;
 
-            resultArea.innerHTML = `
-                <div class="p-10 bg-white dark:bg-zinc-900 rounded-[40px] shadow-2xl relative overflow-hidden">
-                    <div class="scan-line absolute left-0 w-full h-1 bg-blue-500/50 z-20"></div>
-                    <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p class="text-blue-500 font-black animate-pulse">명단 전수조사 중...</p>
-                    <p id="countLog" class="text-xs text-slate-400 mt-2 font-mono">수집된 명단: 0명</p>
-                </div>`;
+            resultArea.innerHTML = `<div class="text-center p-10 animate-pulse font-black text-blue-500">데이터 복구 중...</div>`;
             resultArea.classList.remove('hidden');
 
             try {
+                // 1. 유저 정보 검색
                 const searchRes = await fetch(`https://playentry.org/api/v2/search/user?text=${encodeURIComponent(input)}`);
                 const searchData = await searchRes.json();
                 const target = (searchData.data && searchData.data.length > 0) ? searchData.data[0] : null;
                 
-                if (!target) throw new Error();
+                if (!target) throw new Error("유저를 찾을 수 없습니다.");
                 const targetId = target.username;
 
-                let allFollowers = [];
-                let page = 1;
-                let hasMore = true;
+                // 2. 실제 팔로워 및 복구 팔로워 계산
+                const current = target.followerCount || 0;
+                const bugLoss = RESTORE_DATA[targetId] || 0; // 장부에 없으면 0
+                const total = current + bugLoss;
 
-                while (hasMore && page <= 25) { // 스캔 범위를 25페이지로 조금 더 늘렸습니다
-                    const fRes = await fetch(`https://playentry.org/api/user/followers/${targetId}?page=${page}`);
-                    const fData = await fRes.json();
-                    
-                    if (fData && fData.length > 0) {
-                        allFollowers = [...allFollowers, ...fData];
-                        document.getElementById('countLog').innerText = `수집된 명단: ${allFollowers.length}명`;
-                        page++;
-                    } else {
-                        hasMore = false;
-                    }
-                    await new Promise(r => setTimeout(r, 50));
-                }
-
+                // 3. 결과 출력
                 resultArea.innerHTML = `
-                    <div class="bg-white dark:bg-zinc-900 rounded-[45px] p-10 shadow-2xl border-4 border-blue-600/20 animate-in zoom-in duration-300">
-                        <img src="${target.image?.status === 'custom' ? 'https://playentry.org/uploads/profile/' + targetId.slice(0,2) + '/' + targetId.slice(2,4) + '/avatar/' + targetId + '.png' : 'https://playentry.org/img/DefaultAvatar.png'}" 
-                             class="w-24 h-24 rounded-full mx-auto mb-6 border-4 border-blue-500 shadow-lg object-cover">
-                        <h2 class="text-2xl font-black mb-1">${target.nickname}</h2>
-                        <p class="text-slate-400 text-xs font-bold mb-8 uppercase tracking-widest text-blue-500">Scan Report</p>
-                        
-                        <div class="grid grid-cols-2 gap-4 mb-8 text-sm">
-                            <div class="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl text-left">
-                                <p class="text-slate-400 text-[10px] mb-1 font-black uppercase">Official</p>
-                                <p class="font-black text-lg">${target.followerCount.toLocaleString()}</p>
-                            </div>
-                            <div class="p-4 bg-blue-500/10 rounded-2xl text-left">
-                                <p class="text-blue-500 text-[10px] mb-1 font-black uppercase">Scanned</p>
-                                <p class="font-black text-lg text-blue-600">${allFollowers.length.toLocaleString()}</p>
+                    <div class="bg-white dark:bg-zinc-900 rounded-[40px] p-10 shadow-2xl border border-slate-100 dark:border-white/5 animate-in fade-in zoom-in duration-500">
+                        <div class="flex items-center gap-5 mb-10">
+                            <img src="${target.image?.status === 'custom' ? 'https://playentry.org/uploads/profile/' + targetId.slice(0,2) + '/' + targetId.slice(2,4) + '/avatar/' + targetId + '.png' : 'https://playentry.org/img/DefaultAvatar.png'}" 
+                                 class="w-20 h-20 rounded-full border-4 border-blue-500 shadow-lg object-cover">
+                            <div class="text-left">
+                                <h2 class="text-2xl font-black">${target.nickname}</h2>
+                                <p class="text-blue-500 font-bold text-xs">@${targetId}</p>
                             </div>
                         </div>
 
-                        <div class="pt-6 border-t dark:border-white/5">
-                            <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Verification</p>
-                            <p class="text-blue-500 font-black italic">어쩌다코딩 Scanner Bot v2</p>
+                        <div class="space-y-4 mb-10 font-bold">
+                            <div class="flex justify-between items-center p-5 bg-slate-50 dark:bg-white/5 rounded-3xl">
+                                <span class="text-slate-400 text-xs uppercase">Current</span>
+                                <span class="text-xl">${current.toLocaleString()}</span>
+                            </div>
+                            <div class="flex justify-between items-center p-5 bg-red-500/5 border border-red-500/10 rounded-3xl">
+                                <span class="text-red-500 text-xs uppercase">Bug Loss (Restored)</span>
+                                <span class="text-xl text-red-500">+${bugLoss.toLocaleString()}</span>
+                            </div>
+                        </div>
+
+                        <div class="pt-8 border-t dark:border-white/5 text-center">
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] mb-2">Total Adjusted Followers</p>
+                            <p class="text-7xl font-black italic tracking-tighter text-blue-600 leading-none">
+                                ${total.toLocaleString()}
+                            </p>
                         </div>
                     </div>`;
 
             } catch (e) {
-                resultArea.innerHTML = `<div class="p-8 bg-red-500/10 text-red-500 rounded-3xl font-black">스캔 실패: 유저를 찾을 수 없습니다.</div>`;
-            }
-        }
-    </script>
-</body>
-</html>
+                resultArea.innerHTML = `<div class="p-8 bg-red-500/10 text-red-500 rounded-[30px] font-black">유저를 찾을 수 없습니다.</div>`;
