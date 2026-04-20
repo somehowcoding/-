@@ -3,35 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ENTRY HISTORY - ALL SCANNER</title>
+    <title>ENTRY HISTORY</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>tailwind.config = { darkMode: 'class' }</script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@700;900&display=swap');
-        body { font-family: 'Pretendard', sans-serif; background-color: #050505; color: white; }
-        .stat-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; transition: 0.3s; }
-        .loading-bar { height: 2px; background: #3b82f6; position: absolute; top: 0; left: 0; transition: width 0.3s; }
+        body { font-family: 'Pretendard', sans-serif; background-color: #000; color: #fff; }
+        .card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 30px; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-6">
+<body class="min-h-screen flex flex-col items-center justify-center p-6 text-center">
 
-    <div class="w-full max-w-xl">
-        <div class="mb-12 text-center">
-            <h1 class="text-4xl font-black italic tracking-tighter text-blue-500 mb-2">ENTRY HISTORY</h1>
-            <p class="text-zinc-500 text-[10px] font-black uppercase tracking-[0.4em]">Real-time User Data Scanner</p>
-        </div>
+    <div class="w-full max-w-lg">
+        <h1 class="text-5xl font-black italic tracking-tighter text-blue-500 mb-10">ENTRY HISTORY</h1>
 
-        <div class="flex gap-2 mb-10">
-            <input id="userInput" type="text" onkeyup="if(window.event.keyCode==13){scanEntryUser()}"
-                   placeholder="아이디 또는 닉네임 입력" 
-                   class="flex-grow p-5 rounded-2xl bg-zinc-900 border border-zinc-800 focus:border-blue-500 outline-none font-bold text-lg text-white">
-            <button onclick="scanEntryUser()" class="bg-blue-600 hover:bg-blue-500 px-8 rounded-2xl font-black transition-all active:scale-95">
+        <div class="flex gap-2 mb-12">
+            <input id="targetInput" type="text" onkeyup="if(window.event.keyCode==13){startScan()}"
+                   placeholder="닉네임 또는 아이디" 
+                   class="flex-grow p-5 rounded-2xl bg-zinc-900 border border-zinc-800 outline-none focus:border-blue-500 font-bold text-white">
+            <button onclick="startScan()" class="bg-blue-600 px-8 rounded-2xl font-black hover:bg-blue-500 active:scale-95 transition-all">
                 스캔
             </button>
         </div>
 
-        <div id="resultArea" class="hidden relative overflow-hidden">
-            </div>
+        <div id="displayArea" class="hidden animate-in fade-in duration-500"></div>
     </div>
 
     <footer class="mt-20 text-zinc-700 text-[10px] font-black tracking-widest uppercase">
@@ -39,88 +33,66 @@
     </footer>
 
     <script>
-        async function scanEntryUser() {
-            const input = document.getElementById('userInput').value.trim();
-            const resultArea = document.getElementById('resultArea');
-            if (!input) return;
+        async function startScan() {
+            const input = document.getElementById('targetInput').value.trim();
+            const displayArea = document.getElementById('displayArea');
+            if (!input) return alert("검색어를 입력하세요!");
 
-            resultArea.classList.remove('hidden');
-            resultArea.innerHTML = `
-                <div class="stat-card p-10 text-center relative overflow-hidden">
-                    <div id="pBar" class="loading-bar" style="width: 10%"></div>
-                    <p class="text-blue-500 font-black animate-pulse mb-2">엔트리 데이터베이스 접속 중...</p>
-                    <p id="statusTxt" class="text-xs text-zinc-500">유저 정보를 확인하고 있습니다.</p>
-                </div>`;
+            displayArea.classList.remove('hidden');
+            displayArea.innerHTML = `<div class="p-10 font-black text-zinc-500 animate-pulse italic uppercase">Entry Server Scanning...</div>`;
 
             try {
+                // [보안 우회] AllOrigins 프록시 사용
                 const proxy = "https://api.allorigins.win/get?url=";
                 
-                // 1. 유저 기본 정보 (프로필) 가져오기
-                const searchUrl = encodeURIComponent(`https://playentry.org/api/v2/search/user?text=${input}`);
-                const searchRes = await fetch(proxy + searchUrl);
-                const searchJson = await searchRes.json();
-                const searchData = JSON.parse(searchJson.contents);
-                const userBase = searchData.data[0];
+                // 1. 유저 기본 데이터 (팔로워/팔로잉 포함)
+                const userRes = await fetch(proxy + encodeURIComponent(`https://playentry.org/api/v2/search/user?text=${input}`));
+                const userJson = await userRes.json();
+                const userData = JSON.parse(userJson.contents).data[0];
 
-                if (!userBase) throw new Error("유저를 찾을 수 없습니다.");
-                const targetId = userBase.username;
+                if (!userData) throw new Error("유저를 찾을 수 없습니다.");
+                const id = userData.username;
 
-                document.getElementById('pBar').style.width = "40%";
-                document.getElementById('statusTxt').innerText = "엔트리 이야기 전수 조사 중...";
-
-                // 2. 상세 프로필 데이터 (팔로워/팔로잉)
-                const profileUrl = encodeURIComponent(`https://playentry.org/api/user/profile/${targetId}`);
-                const profileRes = await fetch(proxy + profileUrl);
-                const profileJson = await profileRes.json();
-                const pData = JSON.parse(profileJson.contents);
-
-                // 3. 엔트리 이야기 수 카운트 (API를 통해 게시글 수 확인)
-                // 엔트리는 특정 유저의 게시글 목록을 가져오는 API가 있습니다.
-                const storyUrl = encodeURIComponent(`https://playentry.org/api/discuss/find?user=${targetId}&target=story`);
-                const storyRes = await fetch(proxy + storyUrl);
+                // 2. 엔트리 이야기 개수 가져오기
+                const storyRes = await fetch(proxy + encodeURIComponent(`https://playentry.org/api/discuss/find?user=${id}&target=story`));
                 const storyJson = await storyRes.json();
                 const storyData = JSON.parse(storyJson.contents);
-                
-                // 엔트리 이야기 전체 개수 (total 필드 사용)
                 const storyCount = storyData.total || 0;
 
-                document.getElementById('pBar').style.width = "100%";
-
-                // 4. 최종 결과 렌더링
-                resultArea.innerHTML = `
-                    <div class="stat-card p-10 animate-in fade-in zoom-in duration-500">
-                        <div class="flex items-center gap-5 mb-10">
-                            <img src="${pData.image?.status === 'custom' ? 'https://playentry.org/uploads/profile/' + targetId.slice(0,2) + '/' + targetId.slice(2,4) + '/avatar/' + targetId + '.png' : 'https://playentry.org/img/DefaultAvatar.png'}" 
-                                 class="w-20 h-20 rounded-full border-2 border-blue-500 p-1 shadow-lg shadow-blue-500/20">
-                            <div class="text-left">
-                                <h2 class="text-2xl font-black">${pData.nickname}</h2>
-                                <p class="text-blue-500 font-bold text-xs uppercase tracking-tighter">@${targetId}</p>
+                // 3. 화면에 그리기
+                displayArea.innerHTML = `
+                    <div class="card p-10 shadow-2xl">
+                        <div class="flex items-center gap-5 mb-10 text-left">
+                            <img src="${userData.image?.status === 'custom' ? 'https://playentry.org/uploads/profile/' + id.slice(0,2) + '/' + id.slice(2,4) + '/avatar/' + id + '.png' : 'https://playentry.org/img/DefaultAvatar.png'}" 
+                                 class="w-20 h-20 rounded-full border-2 border-blue-500 p-1 shadow-lg">
+                            <div>
+                                <h2 class="text-2xl font-black">${userData.nickname}</h2>
+                                <p class="text-blue-500 font-bold text-xs uppercase tracking-tighter">@${id}</p>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-3 gap-3 mb-10 text-center">
-                            <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
-                                <p class="text-zinc-500 text-[9px] font-black uppercase mb-1">Followers</p>
-                                <p class="text-xl font-black">${pData.followerCount.toLocaleString()}</p>
+                        <div class="grid grid-cols-3 gap-3 mb-10">
+                            <div class="p-4 bg-white/5 rounded-2xl">
+                                <p class="text-zinc-600 text-[9px] font-black uppercase mb-1">Follower</p>
+                                <p class="text-xl font-black">${userData.followerCount.toLocaleString()}</p>
                             </div>
-                            <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
-                                <p class="text-zinc-500 text-[9px] font-black uppercase mb-1">Following</p>
-                                <p class="text-xl font-black">${pData.followingCount.toLocaleString()}</p>
+                            <div class="p-4 bg-white/5 rounded-2xl">
+                                <p class="text-zinc-600 text-[9px] font-black uppercase mb-1">Following</p>
+                                <p class="text-xl font-black">${userData.followingCount.toLocaleString()}</p>
                             </div>
-                            <div class="bg-blue-500/10 p-4 rounded-2xl border border-blue-500/20">
+                            <div class="p-4 bg-blue-500/10 rounded-2xl border border-blue-500/20">
                                 <p class="text-blue-500 text-[9px] font-black uppercase mb-1">Stories</p>
                                 <p class="text-xl font-black text-blue-500">${storyCount.toLocaleString()}</p>
                             </div>
                         </div>
 
-                        <div class="pt-8 border-t border-white/5 text-center">
-                            <p class="text-zinc-600 text-[10px] font-black uppercase tracking-[0.6em] mb-2">Verified Profile</p>
-                            <p class="text-5xl font-black italic tracking-tighter text-white">SCAN COMPLETE</p>
+                        <div class="pt-8 border-t border-white/5">
+                            <p class="text-4xl font-black italic tracking-tighter text-white uppercase">Scan Success</p>
                         </div>
                     </div>`;
 
             } catch (e) {
-                resultArea.innerHTML = `<div class="stat-card p-10 text-red-500 font-black italic">ERROR: 유저를 찾을 수 없거나 서버 응답이 없습니다.</div>`;
+                displayArea.innerHTML = `<div class="card p-10 text-red-500 font-black italic">ERROR: 유저를 찾을 수 없습니다.</div>`;
             }
         }
     </script>
