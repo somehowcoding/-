@@ -3,106 +3,107 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ENTRY HISTORY</title>
+    <title>ENTRY HISTORY - RECOVERY</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@600;900&display=swap');
-        body { font-family: 'Pretendard', sans-serif; transition: 0.3s; }
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@700;900&display=swap');
+        body { font-family: 'Pretendard', sans-serif; background: #000; color: #fff; }
+        .stat-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; }
+        .recovery-glow { text-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
     </style>
 </head>
-<body class="bg-[#f8fafc] dark:bg-[#0a0a0a] text-slate-900 dark:text-slate-100 min-h-screen flex flex-col items-center justify-center p-6 text-center">
+<body class="min-h-screen flex flex-col items-center justify-center p-6">
 
-    <div class="mb-12">
-        <h1 class="text-5xl font-black tracking-tighter italic mb-2 text-blue-600">ENTRY HISTORY</h1>
-        <p class="text-slate-400 text-xs font-bold tracking-[0.3em] uppercase">Bug Fix & Restore Module</p>
+    <div class="w-full max-w-lg">
+        <div class="mb-12">
+            <h1 class="text-4xl font-black italic tracking-tighter text-blue-500 mb-2">ENTRY HISTORY</h1>
+            <p class="text-zinc-500 text-[10px] font-bold uppercase tracking-[0.4em]">Advanced Follower Restoration</p>
+        </div>
+
+        <div class="flex gap-2 mb-10">
+            <input id="userInput" type="text" onkeyup="if(window.event.keyCode==13){runRecovery()}"
+                   placeholder="유저 아이디 또는 닉네임" 
+                   class="flex-grow p-5 rounded-2xl bg-zinc-900 border border-zinc-800 focus:border-blue-500 outline-none font-bold text-lg transition-all">
+            <button onclick="runRecovery()" class="bg-blue-600 hover:bg-blue-500 px-8 rounded-2xl font-black transition-all active:scale-95">
+                검색
+            </button>
+        </div>
+
+        <div id="resultArea" class="hidden animate-in fade-in duration-500">
+            </div>
     </div>
 
-    <div class="w-full max-w-md flex gap-2 mb-10">
-        <input id="userInput" type="text" onkeyup="if(window.event.keyCode==13){restoreFollower()}"
-               placeholder="닉네임 또는 ID" 
-               class="flex-grow p-5 rounded-[28px] bg-white dark:bg-zinc-900 shadow-xl outline-none focus:ring-2 ring-blue-500 font-bold text-black dark:text-white">
-        <button onclick="restoreFollower()" class="bg-blue-600 text-white px-8 py-5 rounded-[28px] font-black shadow-lg active:scale-95 transition-all">
-            조회
-        </button>
-    </div>
-
-    <div id="resultArea" class="hidden w-full max-w-md"></div>
-
-    <footer class="mt-20 text-slate-400 dark:text-zinc-700 text-[10px] font-black tracking-[0.5em] uppercase">
+    <footer class="mt-20 text-zinc-700 text-[9px] font-black tracking-widest uppercase">
         Made by 어쩌다코딩
     </footer>
 
     <script>
-        // [수정 구역] 탈퇴로 사라진 팔로워 수를 기록하세요
-        const RESTORE_DATA = {
-            "jangye": 2500,
-            "com_p_0126": 1200
+        /**
+         * [여기가 핵심!] 
+         * 회원탈퇴 버그로 인해 깎인 팔로워 수를 유저님이 직접 여기에 기록하세요.
+         * 시스템은 이 숫자를 "복구 데이터"로 인식해서 현재 수치에 더합니다.
+         */
+        const BUG_FIX_DATA = {
+            "jangye": 2500,        // 장예님: 2500명 복구
+            "com_p_0126": 1500,    // 어쩌다코딩님: 1500명 복구
+            "example_id": 1000     // 예시 아이디
         };
 
-        async function restoreFollower() {
+        async function runRecovery() {
             const input = document.getElementById('userInput').value.trim();
             const resultArea = document.getElementById('resultArea');
-            if (!input) return alert("아이디를 입력해주세요!");
+            if (!input) return;
 
-            // 즉시 반응 확인용 로딩창
             resultArea.classList.remove('hidden');
-            resultArea.innerHTML = `<div class="p-10 bg-white dark:bg-zinc-900 rounded-[40px] shadow-2xl font-black text-blue-500 animate-pulse text-lg">데이터 분석 중...</div>`;
+            resultArea.innerHTML = `<div class="p-10 text-zinc-500 font-bold italic animate-pulse">복구 모듈 가동 중...</div>`;
 
             try {
-                // 보안 차단을 피하기 위한 프록시 주소 사용
-                const proxy = "https://api.allorigins.win/get?url=";
-                
-                // 1. 유저 검색
-                const searchUrl = encodeURIComponent(`https://playentry.org/api/v2/search/user?text=${input}`);
-                const searchRes = await fetch(proxy + searchUrl);
-                const searchJson = await searchRes.json();
-                const searchData = JSON.parse(searchJson.contents);
-                
-                const target = (searchData.data && searchData.data.length > 0) ? searchData.data[0] : null;
-                if (!target) throw new Error("유저를 찾을 수 없습니다.");
-                
-                const targetId = target.username;
+                // 1. 유저 검색 (allorigins 프록시 사용으로 차단 회피)
+                const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(`https://playentry.org/api/v2/search/user?text=${input}`)}`);
+                const json = await res.json();
+                const data = JSON.parse(json.contents);
+                const user = data.data[0];
 
-                // 2. 프로필 상세 데이터
-                const profileUrl = encodeURIComponent(`https://playentry.org/api/user/profile/${targetId}`);
-                const profileRes = await fetch(proxy + profileUrl);
-                const profileJson = await profileRes.json();
-                const data = JSON.parse(profileJson.contents);
+                if (!user) throw new Error("유저를 찾을 수 없습니다.");
 
-                // 3. 계산 및 출력
-                const current = data.followerCount || 0;
-                const bugLoss = RESTORE_DATA[targetId] || 0;
-                const total = current + bugLoss;
+                // 2. 데이터 계산
+                const current = user.followerCount || 0;
+                const restoredValue = BUG_FIX_DATA[user.username] || 0; // 장부에 있는 복구 숫자
+                const totalReal = current + restoredValue;
 
+                // 3. UI 렌더링
                 resultArea.innerHTML = `
-                    <div class="bg-white dark:bg-zinc-900 rounded-[40px] p-10 shadow-2xl border dark:border-white/5">
-                        <div class="flex items-center gap-5 mb-8">
-                            <img src="${data.image?.status === 'custom' ? 'https://playentry.org/uploads/profile/' + targetId.slice(0,2) + '/' + targetId.slice(2,4) + '/avatar/' + targetId + '.png' : 'https://playentry.org/img/DefaultAvatar.png'}" 
-                                 class="w-20 h-20 rounded-full border-4 border-blue-500 shadow-md object-cover">
+                    <div class="stat-card p-8">
+                        <div class="flex items-center gap-4 mb-8">
+                            <img src="${user.image?.status === 'custom' ? 'https://playentry.org/uploads/profile/' + user.username.slice(0,2) + '/' + user.username.slice(2,4) + '/avatar/' + user.username + '.png' : 'https://playentry.org/img/DefaultAvatar.png'}" 
+                                 class="w-16 h-16 rounded-full border border-zinc-700">
                             <div class="text-left">
-                                <h2 class="text-2xl font-black">${data.nickname}</h2>
-                                <p class="text-blue-500 font-bold text-xs uppercase tracking-tighter">@${targetId}</p>
+                                <h2 class="text-xl font-black">${user.nickname}</h2>
+                                <p class="text-blue-500 text-xs font-bold uppercase tracking-tighter">@${user.username}</p>
                             </div>
                         </div>
-                        <div class="space-y-3 mb-8">
-                            <div class="flex justify-between p-4 bg-slate-50 dark:bg-white/5 rounded-2xl font-bold">
-                                <span class="text-slate-400 text-xs uppercase">Current</span>
-                                <span>${current.toLocaleString()}</span>
+
+                        <div class="grid grid-cols-2 gap-4 mb-8">
+                            <div class="bg-black/40 p-5 rounded-2xl border border-zinc-800 text-left">
+                                <p class="text-zinc-600 text-[10px] font-black uppercase mb-1">Current (Bugged)</p>
+                                <p class="text-2xl font-black">${current.toLocaleString()}</p>
                             </div>
-                            <div class="flex justify-between p-4 bg-blue-500/5 rounded-2xl font-bold text-blue-500">
-                                <span class="text-xs uppercase font-black tracking-widest">Restored</span>
-                                <span>+${bugLoss.toLocaleString()}</span>
+                            <div class="bg-blue-500/10 p-5 rounded-2xl border border-blue-500/20 text-left">
+                                <p class="text-blue-500 text-[10px] font-black uppercase mb-1">Restored (Recovery)</p>
+                                <p class="text-2xl font-black text-blue-500">+${restoredValue.toLocaleString()}</p>
                             </div>
                         </div>
-                        <div class="pt-6 border-t dark:border-white/5">
-                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Adjusted</p>
-                            <p class="text-6xl font-black italic tracking-tighter text-blue-600">${total.toLocaleString()}</p>
+
+                        <div class="pt-8 border-t border-zinc-800">
+                            <p class="text-zinc-500 text-[10px] font-black uppercase tracking-[0.5em] mb-2">Total Power Followers</p>
+                            <p class="text-7xl font-black italic tracking-tighter recovery-glow">${totalReal.toLocaleString()}</p>
                         </div>
-                    </div>`;
+                    </div>
+                `;
 
             } catch (e) {
-                resultArea.innerHTML = `<div class="p-8 bg-red-500/10 text-red-500 rounded-[30px] font-black italic">ERROR: ${e.message}</div>`;
+                resultArea.innerHTML = `<div class="p-10 stat-card text-red-500 font-black italic">ERROR: 유저를 찾을 수 없습니다.</div>`;
             }
         }
     </script>
