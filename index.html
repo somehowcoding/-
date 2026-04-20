@@ -23,7 +23,7 @@
     <div class="w-full max-w-md flex gap-2 mb-8">
         <input id="userInput" type="text" onkeyup="if(window.event.keyCode==13){startScan()}"
                placeholder="조사할 아이디 또는 닉네임" 
-               class="flex-grow p-5 rounded-3xl bg-white dark:bg-zinc-900 shadow-xl outline-none focus:ring-2 ring-blue-500 font-bold">
+               class="flex-grow p-5 rounded-3xl bg-white dark:bg-zinc-900 shadow-xl outline-none focus:ring-2 ring-blue-500 font-bold text-black dark:text-white">
         <button onclick="startScan()" class="bg-blue-600 text-white px-8 py-5 rounded-3xl font-black shadow-lg active:scale-95 transition-all">
             스캔
         </button>
@@ -31,6 +31,10 @@
 
     <div id="resultArea" class="hidden w-full max-w-md relative">
         </div>
+
+    <footer class="mt-20 text-slate-400 dark:text-zinc-600 text-[10px] font-black tracking-[0.4em] uppercase">
+        Made by 어쩌다코딩
+    </footer>
 
     <script>
         async function startScan() {
@@ -43,12 +47,11 @@
                     <div class="scan-line absolute left-0 w-full h-1 bg-blue-500/50 z-20"></div>
                     <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                     <p class="text-blue-500 font-black animate-pulse">명단 전수조사 중...</p>
-                    <p id="countLog" class="text-xs text-slate-400 mt-2 font-mono">불러오는 중: 0명</p>
+                    <p id="countLog" class="text-xs text-slate-400 mt-2 font-mono">수집된 명단: 0명</p>
                 </div>`;
             resultArea.classList.remove('hidden');
 
             try {
-                // 1. 유저 정보 찾기
                 const searchRes = await fetch(`https://playentry.org/api/v2/search/user?text=${encodeURIComponent(input)}`);
                 const searchData = await searchRes.json();
                 const target = (searchData.data && searchData.data.length > 0) ? searchData.data[0] : null;
@@ -56,12 +59,11 @@
                 if (!target) throw new Error();
                 const targetId = target.username;
 
-                // 2. 팔로워 명단 전수조사 (페이지를 넘기며 데이터 수집)
                 let allFollowers = [];
                 let page = 1;
                 let hasMore = true;
 
-                while (hasMore && page <= 10) { // 너무 오래 걸리지 않게 최대 10페이지(약 300~500명) 제한 (조절 가능)
+                while (hasMore && page <= 20) { // 더 넓은 범위를 위해 페이지 한도를 20으로 늘렸습니다.
                     const fRes = await fetch(`https://playentry.org/api/user/followers/${targetId}?page=${page}`);
                     const fData = await fRes.json();
                     
@@ -72,37 +74,35 @@
                     } else {
                         hasMore = false;
                     }
-                    // 너무 빠른 요청 방지
-                    await new Promise(r => setTimeout(r, 100));
+                    await new Promise(r => setTimeout(r, 50));
                 }
 
-                // 3. 결과 출력
                 resultArea.innerHTML = `
-                    <div class="bg-white dark:bg-zinc-900 rounded-[45px] p-10 shadow-2xl border-4 border-blue-600/20">
+                    <div class="bg-white dark:bg-zinc-900 rounded-[45px] p-10 shadow-2xl border-4 border-blue-600/20 animate-in zoom-in duration-300">
                         <img src="${target.image?.status === 'custom' ? 'https://playentry.org/uploads/profile/' + targetId.slice(0,2) + '/' + targetId.slice(2,4) + '/avatar/' + targetId + '.png' : 'https://playentry.org/img/DefaultAvatar.png'}" 
-                             class="w-24 h-24 rounded-full mx-auto mb-6 border-4 border-blue-500">
+                             class="w-24 h-24 rounded-full mx-auto mb-6 border-4 border-blue-500 shadow-lg object-cover">
                         <h2 class="text-2xl font-black mb-1">${target.nickname}</h2>
-                        <p class="text-slate-400 text-xs font-bold mb-8 uppercase tracking-widest">Scan Report</p>
+                        <p class="text-slate-400 text-xs font-bold mb-8 uppercase tracking-widest">Real-time Scan Report</p>
                         
                         <div class="grid grid-cols-2 gap-4 mb-8 text-sm">
                             <div class="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl">
-                                <p class="text-slate-400 text-[10px] mb-1">표시된 수</p>
+                                <p class="text-slate-400 text-[10px] mb-1">표시된 팔로워</p>
                                 <p class="font-black text-lg">${target.followerCount.toLocaleString()}</p>
                             </div>
                             <div class="p-4 bg-blue-500/10 rounded-2xl">
-                                <p class="text-blue-500 text-[10px] mb-1">실제 감지 수</p>
+                                <p class="text-blue-500 text-[10px] mb-1">실제 수집된 수</p>
                                 <p class="font-black text-lg text-blue-600">${allFollowers.length.toLocaleString()}</p>
                             </div>
                         </div>
 
                         <div class="pt-6 border-t dark:border-white/5">
-                            <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Scan Status</p>
-                            <p class="text-green-500 font-black italic">VERIFIED BY BOT</p>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Verified By</p>
+                            <p class="text-blue-500 font-black italic">어쩌다코딩 Scanner Bot</p>
                         </div>
                     </div>`;
 
             } catch (e) {
-                resultArea.innerHTML = `<div class="p-8 bg-red-500/10 text-red-500 rounded-3xl font-black">스캔 실패: 유저를 찾을 수 없거나 데이터가 없습니다.</div>`;
+                resultArea.innerHTML = `<div class="p-8 bg-red-500/10 text-red-500 rounded-3xl font-black">스캔 실패: 유저를 찾을 수 없습니다.</div>`;
             }
         }
     </script>
