@@ -3,108 +3,124 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ENTRY HISTORY - RECOVERY</title>
+    <title>ENTRY HISTORY - ALL SCANNER</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@700;900&display=swap');
         body { font-family: 'Pretendard', sans-serif; background-color: #050505; color: white; }
-        .stat-value { font-size: 5rem; line-height: 1; letter-spacing: -0.05em; font-weight: 900; font-style: italic; }
-        .recovery-glow { text-shadow: 0 0 20px rgba(59, 130, 246, 0.6); }
+        .stat-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; transition: 0.3s; }
+        .loading-bar { height: 2px; background: #3b82f6; position: absolute; top: 0; left: 0; transition: width 0.3s; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-6 text-center">
+<body class="min-h-screen flex flex-col items-center justify-center p-6">
 
-    <div class="w-full max-w-lg">
-        <div class="mb-14">
+    <div class="w-full max-w-xl">
+        <div class="mb-12 text-center">
             <h1 class="text-4xl font-black italic tracking-tighter text-blue-500 mb-2">ENTRY HISTORY</h1>
-            <div class="inline-block px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full">
-                <p class="text-blue-400 text-[10px] font-black uppercase tracking-widest">Follower Restoration Active</p>
-            </div>
+            <p class="text-zinc-500 text-[10px] font-black uppercase tracking-[0.4em]">Real-time User Data Scanner</p>
         </div>
 
-        <div class="flex gap-2 mb-12">
-            <input id="userInput" type="text" onkeyup="if(window.event.keyCode==13){scanUser()}"
-                   placeholder="조회할 아이디 또는 닉네임" 
-                   class="flex-grow p-5 rounded-2xl bg-zinc-900/50 border border-zinc-800 focus:border-blue-500 outline-none font-bold text-lg transition-all text-white">
-            <button onclick="scanUser()" class="bg-blue-600 hover:bg-blue-500 px-8 rounded-2xl font-black transition-all active:scale-95 shadow-lg shadow-blue-600/20">
-                조회
+        <div class="flex gap-2 mb-10">
+            <input id="userInput" type="text" onkeyup="if(window.event.keyCode==13){scanEntryUser()}"
+                   placeholder="아이디 또는 닉네임 입력" 
+                   class="flex-grow p-5 rounded-2xl bg-zinc-900 border border-zinc-800 focus:border-blue-500 outline-none font-bold text-lg text-white">
+            <button onclick="scanEntryUser()" class="bg-blue-600 hover:bg-blue-500 px-8 rounded-2xl font-black transition-all active:scale-95">
+                스캔
             </button>
         </div>
 
-        <div id="resultArea" class="hidden">
+        <div id="resultArea" class="hidden relative overflow-hidden">
             </div>
     </div>
 
-    <footer class="mt-20 text-zinc-700 text-[10px] font-black tracking-[0.5em] uppercase">
+    <footer class="mt-20 text-zinc-700 text-[10px] font-black tracking-widest uppercase">
         Made by 어쩌다코딩
     </footer>
 
     <script>
-        /**
-         * [장부] 회탈 버그로 깎인 숫자를 여기에 입력하세요!
-         * 형식 -> "아이디": 보정할_숫자
-         */
-        const RECOVERY_LIST = {
-            "jangye": 2500,        // 장예님은 2500명 추가
-            "com_p_0126": 1200,    // 어쩌다코딩님은 1200명 추가
-            "entry": 50000         // 예시
-        };
-
-        async function scanUser() {
+        async function scanEntryUser() {
             const input = document.getElementById('userInput').value.trim();
             const resultArea = document.getElementById('resultArea');
             if (!input) return;
 
             resultArea.classList.remove('hidden');
-            resultArea.innerHTML = `<div class="p-10 text-zinc-500 font-black italic animate-pulse uppercase tracking-widest">Accessing Entry Database...</div>`;
+            resultArea.innerHTML = `
+                <div class="stat-card p-10 text-center relative overflow-hidden">
+                    <div id="pBar" class="loading-bar" style="width: 10%"></div>
+                    <p class="text-blue-500 font-black animate-pulse mb-2">엔트리 데이터베이스 접속 중...</p>
+                    <p id="statusTxt" class="text-xs text-zinc-500">유저 정보를 확인하고 있습니다.</p>
+                </div>`;
 
             try {
-                // 1. 유저 검색 (CORS 우회를 위해 allorigins 프록시 사용)
-                const searchRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(`https://playentry.org/api/v2/search/user?text=${input}`)}`);
+                const proxy = "https://api.allorigins.win/get?url=";
+                
+                // 1. 유저 기본 정보 (프로필) 가져오기
+                const searchUrl = encodeURIComponent(`https://playentry.org/api/v2/search/user?text=${input}`);
+                const searchRes = await fetch(proxy + searchUrl);
                 const searchJson = await searchRes.json();
                 const searchData = JSON.parse(searchJson.contents);
-                const user = searchData.data[0];
+                const userBase = searchData.data[0];
 
-                if (!user) throw new Error();
+                if (!userBase) throw new Error("유저를 찾을 수 없습니다.");
+                const targetId = userBase.username;
 
-                // 2. 복구 로직 적용
-                const current = user.followerCount || 0;
-                const restoreValue = RECOVERY_LIST[user.username] || 0; // 장부에 있으면 가져오고 없으면 0
-                const finalCount = current + restoreValue;
+                document.getElementById('pBar').style.width = "40%";
+                document.getElementById('statusTxt').innerText = "엔트리 이야기 전수 조사 중...";
 
-                // 3. 결과 표시
+                // 2. 상세 프로필 데이터 (팔로워/팔로잉)
+                const profileUrl = encodeURIComponent(`https://playentry.org/api/user/profile/${targetId}`);
+                const profileRes = await fetch(proxy + profileUrl);
+                const profileJson = await profileRes.json();
+                const pData = JSON.parse(profileJson.contents);
+
+                // 3. 엔트리 이야기 수 카운트 (API를 통해 게시글 수 확인)
+                // 엔트리는 특정 유저의 게시글 목록을 가져오는 API가 있습니다.
+                const storyUrl = encodeURIComponent(`https://playentry.org/api/discuss/find?user=${targetId}&target=story`);
+                const storyRes = await fetch(proxy + storyUrl);
+                const storyJson = await storyRes.json();
+                const storyData = JSON.parse(storyJson.contents);
+                
+                // 엔트리 이야기 전체 개수 (total 필드 사용)
+                const storyCount = storyData.total || 0;
+
+                document.getElementById('pBar').style.width = "100%";
+
+                // 4. 최종 결과 렌더링
                 resultArea.innerHTML = `
-                    <div class="p-10 rounded-[40px] bg-zinc-900/30 border border-white/5 backdrop-blur-xl animate-in fade-in zoom-in duration-500">
-                        <div class="flex items-center justify-center gap-4 mb-10">
-                            <img src="${user.image?.status === 'custom' ? 'https://playentry.org/uploads/profile/' + user.username.slice(0,2) + '/' + user.username.slice(2,4) + '/avatar/' + user.username + '.png' : 'https://playentry.org/img/DefaultAvatar.png'}" 
-                                 class="w-16 h-16 rounded-full border-2 border-blue-500 p-1">
+                    <div class="stat-card p-10 animate-in fade-in zoom-in duration-500">
+                        <div class="flex items-center gap-5 mb-10">
+                            <img src="${pData.image?.status === 'custom' ? 'https://playentry.org/uploads/profile/' + targetId.slice(0,2) + '/' + targetId.slice(2,4) + '/avatar/' + targetId + '.png' : 'https://playentry.org/img/DefaultAvatar.png'}" 
+                                 class="w-20 h-20 rounded-full border-2 border-blue-500 p-1 shadow-lg shadow-blue-500/20">
                             <div class="text-left">
-                                <h2 class="text-2xl font-black leading-tight">${user.nickname}</h2>
-                                <p class="text-blue-500 font-bold text-xs">@${user.username}</p>
+                                <h2 class="text-2xl font-black">${pData.nickname}</h2>
+                                <p class="text-blue-500 font-bold text-xs uppercase tracking-tighter">@${targetId}</p>
                             </div>
                         </div>
 
-                        <div class="space-y-4 mb-10">
-                            <div class="flex justify-between items-center p-5 bg-white/5 rounded-2xl border border-white/5">
-                                <span class="text-zinc-500 text-[10px] font-black uppercase">Current (Bugged)</span>
-                                <span class="font-bold text-xl">${current.toLocaleString()}</span>
+                        <div class="grid grid-cols-3 gap-3 mb-10 text-center">
+                            <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                                <p class="text-zinc-500 text-[9px] font-black uppercase mb-1">Followers</p>
+                                <p class="text-xl font-black">${pData.followerCount.toLocaleString()}</p>
                             </div>
-                            <div class="flex justify-between items-center p-5 bg-blue-500/10 rounded-2xl border border-blue-500/20">
-                                <span class="text-blue-500 text-[10px] font-black uppercase">Restoration Data</span>
-                                <span class="font-bold text-xl text-blue-500">+${restoreValue.toLocaleString()}</span>
+                            <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                                <p class="text-zinc-500 text-[9px] font-black uppercase mb-1">Following</p>
+                                <p class="text-xl font-black">${pData.followingCount.toLocaleString()}</p>
+                            </div>
+                            <div class="bg-blue-500/10 p-4 rounded-2xl border border-blue-500/20">
+                                <p class="text-blue-500 text-[9px] font-black uppercase mb-1">Stories</p>
+                                <p class="text-xl font-black text-blue-500">${storyCount.toLocaleString()}</p>
                             </div>
                         </div>
 
-                        <div class="pt-8 border-t border-white/10">
-                            <p class="text-zinc-600 text-[10px] font-black uppercase tracking-[0.6em] mb-2">Original Power Status</p>
-                            <p class="stat-value text-white recovery-glow">${finalCount.toLocaleString()}</p>
+                        <div class="pt-8 border-t border-white/5 text-center">
+                            <p class="text-zinc-600 text-[10px] font-black uppercase tracking-[0.6em] mb-2">Verified Profile</p>
+                            <p class="text-5xl font-black italic tracking-tighter text-white">SCAN COMPLETE</p>
                         </div>
-                    </div>
-                `;
+                    </div>`;
 
             } catch (e) {
-                resultArea.innerHTML = `<div class="p-10 font-black text-red-500 uppercase italic">User Not Found or Server Busy</div>`;
+                resultArea.innerHTML = `<div class="stat-card p-10 text-red-500 font-black italic">ERROR: 유저를 찾을 수 없거나 서버 응답이 없습니다.</div>`;
             }
         }
     </script>
